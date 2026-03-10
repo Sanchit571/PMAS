@@ -220,7 +220,7 @@ std = healthy_errors.std()
 
 threshold_healthy = mean + 2 * std
 threshold_critical = mean + 3 * std
-np.save("model/thresholds.npy", [threshold_healthy, threshold_critical])
+np.save(f"{SAVE_PATH}/thresholds.npy", [threshold_healthy, threshold_critical])
 
 print("\nGaussian Thresholds:")
 print("Healthy Limit :", threshold_healthy)
@@ -271,9 +271,6 @@ print("==============================\n")
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-
-# Create folder for results
-os.makedirs("results", exist_ok=True)
 
 # Align failure flags with sequence offset
 failure_flags = df["machine_failure"].values[SEQ_LEN:]
