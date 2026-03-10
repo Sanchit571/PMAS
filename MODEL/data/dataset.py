@@ -1,17 +1,19 @@
 import numpy as np
 import pandas as pd
+import os
 
 np.random.seed(42)
 
 NUM_MACHINES = 5
 YEARS = 10
-FREQ = "H"
+FREQ = "h"
 
 DATES = pd.date_range(
     start="2015-01-01",
     end="2024-12-31 23:00:00",
     freq=FREQ
 )
+DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
 records = []
 
@@ -99,7 +101,7 @@ columns = [
 
 df = pd.DataFrame(records, columns=columns)
 
-df.to_csv("predictive_maintenance_hourly.csv", index=False)
+df.to_csv(f"{DATA_DIR}/Predictive_Maintenance_Synthetic_Data.csv", index=False)
 
 print(df.head())
 print("Total rows:", len(df))
