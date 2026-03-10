@@ -189,6 +189,7 @@ for epoch in range(EPOCHS):
     if epoch_loss < best_loss:
         best_loss = epoch_loss
         torch.save(model.state_dict(), f"{SAVE_PATH}/predictive_health_model.pth")
+        print(f">> Best model saved at epoch: {epoch} - loss: {epoch_loss}")
 
     print(f"Epoch {epoch+1} Loss: {total_loss/len(train_loader):.6f}")
 
