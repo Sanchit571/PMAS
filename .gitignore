@@ -1,3 +1,23 @@
 # macOS system files
 .DS_Store
 .DS_Store
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.env
+.venv
+venv/
+*.pkl
+*.npy
+
+# =========================
+# Model checkpoints
+# =========================
+*.pt
+*.pth
