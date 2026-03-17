@@ -1,100 +1,118 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import os
 
-# Configuration
-NUM_SAMPLES = 300
+np.random.seed(123)
+
+NUM_MACHINES = 6
+HOURS = 300
+DATES = pd.date_range(start="2025-01-01", periods=HOURS, freq="h")
+
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
-FILE_NAME = "inference_test_bench.csv"
 
-def generate_unlabeled_test_data():
-    np.random.seed(42)
+records = []
 
-    # ================================
-    # BASE HEALTHY DATA
-    # ================================
-    data = {
-        "timestamp": pd.date_range(start="2026-01-01", periods=NUM_SAMPLES, freq="min"),
-        "machine_id": ["M_001"] * NUM_SAMPLES,
+machine_states = {
+    "M01": "healthy",
+    "M02": "healthy",
+    "M03": "degrading",
+    "M04": "degrading",
+    "M05": "critical",
+    "M06": "failing"
+}
 
-        "process_temperature": np.random.normal(308, 1, NUM_SAMPLES),
-        "air_temperature": np.random.normal(298, 1, NUM_SAMPLES),
+cycle_length = 2285  # same as training
 
-        "vibration": np.random.normal(0.2, 0.02, NUM_SAMPLES),
-        "torque": np.random.normal(40, 2, NUM_SAMPLES),
-        "rpm": np.random.normal(1500, 20, NUM_SAMPLES),
+for machine_id, state in machine_states.items():
 
-        "current": np.random.normal(5, 0.3, NUM_SAMPLES),
+    base_vibration = np.random.uniform(0.2, 0.4)
+    base_temp = np.random.uniform(55, 65)
 
-        "operating_hours": np.linspace(100, 400, NUM_SAMPLES),
-        "time_since_last_maintenance": np.linspace(10, 200, NUM_SAMPLES),
+    maint_timer = 0
 
-        "last_maintenance_Type": ["Routine"] * NUM_SAMPLES,
+    # 🔥 KEY FIX: force cycle position
+    if state == "healthy":
+        total_operating_hours = np.random.randint(0, 200)
 
-        "idle_duration": np.random.normal(3, 1, NUM_SAMPLES),
+    elif state == "degrading":
+        total_operating_hours = np.random.randint(900, 1400)
 
-        "power_consumption": np.random.normal(2000, 50, NUM_SAMPLES),
-    }
+    elif state == "critical":
+        total_operating_hours = np.random.randint(1800, 2100)
 
-    df = pd.DataFrame(data)
+    else:  # failing
+        total_operating_hours = np.random.randint(2100, 2280)
 
-    # ================================
-    # SUBTLE DEGRADATION
-    # ================================
-    degrade_range = range(151, 221)
+    # 🔥 initial degradation still matters
+    if state == "healthy":
+        degradation = 0.02
+    elif state == "degrading":
+        degradation = 0.2
+    elif state == "critical":
+        degradation = 0.7
+    else:
+        degradation = 0.9
 
-    df.loc[degrade_range, "process_temperature"] += np.linspace(0, 10, len(degrade_range))
-    df.loc[degrade_range, "vibration"] += np.linspace(0, 0.1, len(degrade_range))
-    df.loc[degrade_range, "power_consumption"] += np.linspace(0, 300, len(degrade_range))
-    df.loc[degrade_range, "current"] += np.linspace(0, 1.5, len(degrade_range))
+    for ts in DATES:
+        total_operating_hours += 1
+        maint_timer += 1
 
-    # ================================
-    # CRITICAL FAILURE
-    # ================================
-    fail_range = range(221, NUM_SAMPLES)
+        # degradation speed
+        if state == "healthy":
+            wear_step = np.random.uniform(1e-4, 2e-4)
+        elif state == "degrading":
+            wear_step = np.random.uniform(2e-4, 4e-4)
+        else:
+            wear_step = np.random.uniform(5e-4, 9e-4)
 
-    df.loc[fail_range, "process_temperature"] += 25
-    df.loc[fail_range, "vibration"] += 0.3
+        degradation += wear_step
 
-    df.loc[fail_range, "rpm"] *= np.random.uniform(0.6, 0.8, len(fail_range))
-    df.loc[fail_range, "torque"] += 35
+        # sensor signals (keep yours but slightly stronger separation)
+        vibration = base_vibration * (1 + (3 + 5 * degradation) * degradation) + np.random.normal(0, 0.02)
+        process_temp = base_temp * (1 + (2 + 3 * degradation) * degradation) + np.random.normal(0, 1.0)
 
-    df.loc[fail_range, "current"] += 3
-    df.loc[fail_range, "power_consumption"] += 800
+        machine_failure = 0
+        maint_type = "None"
 
-    # More erratic idle behavior
-    df.loc[fail_range, "idle_duration"] += np.random.uniform(2, 5, len(fail_range))
+        # failure only for failing machine
+        if state == "failing" and degradation > 1.1:
+            machine_failure = 1
+            maint_type = "corrective"
+            degradation = 0.8
+            maint_timer = 0
 
-    # ================================
-    # COLUMN ORDER FIX (CRITICAL)
-    # ================================
-    df = df[[
-        "timestamp",
-        "machine_id",
-        "process_temperature",
-        "air_temperature",
-        "vibration",
-        "torque",
-        "rpm",
-        "current",
-        "operating_hours",
-        "time_since_last_maintenance",
-        "last_maintenance_Type",
-        "idle_duration",
-        "power_consumption"
-    ]]
+        torque = np.random.uniform(40, 70) * (1 + 0.2 * degradation)
+        rpm = np.random.uniform(1200, 1800) * (1 - 0.25 * degradation)
+        current = (torque * rpm) / 9000 + np.random.normal(0, 0.2)
 
-    # Save
-    save_path = f"{DATA_DIR}/{FILE_NAME}"
-    df.to_csv(save_path, index=False)
+        records.append([
+            ts,
+            machine_id,
+            process_temp,
+            np.random.uniform(20, 30),
+            vibration,
+            torque,
+            rpm,
+            current,
+            total_operating_hours,
+            maint_timer,
+            maint_type,
+            machine_failure,
+            np.random.uniform(0, 0.2),
+            current * 0.415
+        ])
 
-    print(f"\nGenerated: {FILE_NAME}")
-    print(f"Path: {save_path}")
-    print(f"Total Rows: {len(df)}")
-    print("Structure:")
-    print("  0–150   → Healthy")
-    print(" 151–220  → Degrading")
-    print(" 221–300  → Critical")
+columns = [
+    "timestamp", "machine_id", "process_temperature", "air_temperature",
+    "vibration", "torque", "rpm", "current", "operating_hours",
+    "time_since_last_maintenance", "last_maintenance_Type", "machine_failure",
+    "idle_duration", "power_consumption"
+]
 
-if __name__ == "__main__":
-    generate_unlabeled_test_data()
+df = pd.DataFrame(records, columns=columns)
+
+save_path = os.path.join(DATA_DIR, "inference_test_data.csv")
+df.to_csv(save_path, index=False)
+
+print("Saved:", save_path)
+print("Failures:", df["machine_failure"].sum())
