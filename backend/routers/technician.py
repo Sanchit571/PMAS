@@ -113,7 +113,7 @@ def accept_ticket(
 @router.patch('/update-status/{ticket_id}', response_model=schemas.TicketResponse)
 def update_ticket_status(
     ticket_id: int,
-    status: models.TicketStatus = Body(...),
+    ticket_status: models.TicketStatus = Body(...),
     db: Session = Depends(get_db),
     user: models.User = Depends(role_required(['TECHNICIAN']))
 ):
@@ -125,7 +125,7 @@ def update_ticket_status(
     
     if not assignment:
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="You are not authorized to update this ticket's status."
         )
         
@@ -136,8 +136,14 @@ def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Ticket {ticket_id} not found")
     
-    ticket.status = status.value
+    ticket.status = ticket_status.value
+    
+    if ticket_status == models.TicketStatus.RESOLVED and ticket.alert_id:
+        db.query(models.Alert).filter(
+            models.Alert.alert_id == ticket.alert_id
+        ).update({"closed":True})
     
     db.commit()
+    db.refresh(ticket)
     
     return ticket
