@@ -115,6 +115,7 @@ class AlertResponse(BaseModel):
     severity: Severity
     created_at: datetime
     acknowledged: bool
+    closed: bool
     
     @computed_field
     @property
