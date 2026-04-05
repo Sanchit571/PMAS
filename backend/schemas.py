@@ -116,6 +116,7 @@ class AlertResponse(BaseModel):
     created_at: datetime
     acknowledged: bool
     closed: bool
+    tickets: List[TicketResponse] = []
     
     @computed_field
     @property
@@ -135,3 +136,18 @@ class AlertResponse(BaseModel):
 
     class Config:
         from_attributes=True
+
+class MonitoringResponse(BaseModel):
+    machine_id: str
+    machine_type: str
+    machine_location: str
+    operating_hours: float
+
+    temperature: float
+    vibration: float
+    torque: float
+    rpm: float
+
+    time_since_last_maint: float
+    rul_days: float
+    next_maintenance_days: float

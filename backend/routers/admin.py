@@ -1,9 +1,12 @@
 from typing import List
 from fastapi import APIRouter, status, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 from sqlalchemy import desc
 from backend import database, schemas, auth, models
 from backend.core.hashing import Hash
+import pandas as pd
+from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
 
 router = APIRouter(
     prefix='/admin',
@@ -272,7 +275,7 @@ def view_alerts(
     db: Session = Depends(get_db),
     user: models.User = Depends(role_required(['ADMIN']))
 ):
-    alerts = db.query(models.Alert).all()
+    alerts = db.query(models.Alert).options(joinedload(models.Alert.tickets)).all();
     
     return alerts
 
@@ -292,3 +295,38 @@ def acknowlege_alert(
     db.commit()
     
     return {"msg": "Alert acknowledged succesfully"}
+
+@router.get('/monitoring/{machine_id}', response_model=schemas.MonitoringResponse)
+def get_live_monitoring(
+    machine_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(role_required(['ADMIN', 'TECHNICIAN']))
+):
+    data_df = pd.read_csv(DATA_PATH)
+    results_df = pd.read_csv(OUTPUT_PATH)
+
+    data_row = data_df[data_df['machine_id'] == machine_id]
+    results_row = results_df[results_df['machine_id'] == machine_id]
+
+    machine = db.query(models.Machine).filter(
+        models.Machine.machine_id == machine_id
+    ).first()
+
+    if not machine:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Machine {machine_id} not found")
+
+    monitoring_result = schemas.MonitoringResponse(
+        machine_id=machine_id,
+        machine_type=machine.machine_type,
+        machine_location=machine.location,
+        operating_hours=data_row['operating_hours'],
+        temperature=data_row['process_temperature'],
+        vibration=data_row['vibration'],
+        torque=data_row['torque'],
+        rpm=data_row['rpm'],
+        time_since_last_maint=data_row['time_since_last_maintenance'],
+        rul_days=results_row['RUL_predicted_days'],
+        next_maintenance_days=results_row['next_maintenance_days']
+    )
+
+    return monitoring_result

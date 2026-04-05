@@ -12,8 +12,8 @@ CSV_PATH = os.path.join(DATA_DIR, "inference_test_data.csv")
 STATE_PATH = os.path.join(DATA_DIR, "machine_state.json")
 
 # Probability Factors (tuned for 5-second intervals)
-P_HEALTHY_TO_DEGRADING = 0.01  # 1% chance (~10 mins expected time)
-P_DEGRADING_TO_CRITICAL = 0.04 # 4% chance (~1.5 mins expected time)
+P_HEALTHY_TO_DEGRADING = 0.001 
+P_DEGRADING_TO_CRITICAL = 0.004 # 4% chance (~1.5 mins expected time)
 
 def get_machine_ids():
     db = SessionLocal()
@@ -52,7 +52,7 @@ def generate_data(verbose: int = 0):
                 "base_vib": np.random.uniform(0.2, 0.4),
                 "base_temp": np.random.uniform(55, 65),
                 "op_hours": op_hours,
-                "maint_timer": 0
+                "maint_timer": np.random.uniform(10, 500)
             }
     else:
         with open(STATE_PATH, 'r') as f:

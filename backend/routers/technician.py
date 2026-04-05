@@ -3,6 +3,8 @@ from fastapi import APIRouter, status, Depends, HTTPException, Body
 from backend import database, auth, models, schemas
 from backend.core.hashing import Hash
 from sqlalchemy.orm import Session
+import pandas as pd
+from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
 
 router = APIRouter(
     prefix='/technician',
@@ -147,3 +149,38 @@ def update_ticket_status(
     db.refresh(ticket)
     
     return ticket
+
+@router.get('/monitoring/{machine_id}', response_model=schemas.MonitoringResponse)
+def get_live_monitoring(
+    machine_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(role_required(['ADMIN', 'TECHNICIAN']))
+):
+    data_df = pd.read_csv(DATA_PATH)
+    results_df = pd.read_csv(OUTPUT_PATH)
+
+    data_row = data_df[data_df['machine_id'] == machine_id]
+    results_row = results_df[results_df['machine_id'] == machine_id]
+
+    machine = db.query(models.Machine).filter(
+        models.Machine.machine_id == machine_id
+    ).first()
+
+    if not machine:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Machine {machine_id} not found")
+
+    monitoring_result = schemas.MonitoringResponse(
+        machine_id=machine_id,
+        machine_type=machine.machine_type,
+        machine_location=machine.location,
+        operating_hours=data_row['operating_hours'],
+        temperature=data_row['process_temperature'],
+        vibration=data_row['vibration'],
+        torque=data_row['torque'],
+        rpm=data_row['rpm'],
+        time_since_last_maint=data_row['time_since_last_maintenance'],
+        rul_days=results_row['RUL_predicted_days'],
+        next_maintenance_days=results_row['next_maintenance_days']
+    )
+
+    return monitoring_result

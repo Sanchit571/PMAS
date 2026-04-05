@@ -156,7 +156,7 @@ const Machines = () => {
 
       <div className={styles.topBar}>
         <div>
-          <div className={styles.pageTitle}>Machine Inventory</div>
+          <div className={styles.pageTitle}>Machines</div>
           <div className={styles.pageSubtitle}>{machines.length} total units discovered</div>
         </div>
         {/* only admins can add machines */}

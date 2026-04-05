@@ -43,12 +43,23 @@ def generate_alerts(db: Session):
                 machine_id=row['machine_id'],
                 severity=models.Severity.MEDIUM
             )
+
+            db.query(models.Machine).filter(
+                models.Machine.machine_id == row['machine_id']
+            ).update({models.Machine.health_status: models.HealthStatus.DEGRADING})
         elif row['health_status'] == 'CRITICAL':
             alert = models.Alert(
                 machine_id=row['machine_id'],
                 severity=models.Severity.HIGH
             )
+
+            db.query(models.Machine).filter(
+                models.Machine.machine_id == row['machine_id']
+            ).update({models.Machine.health_status: models.HealthStatus.CRITICAL})
         else:
+            db.query(models.Machine).filter(
+                models.Machine.machine_id == row['machine_id']
+            ).update({models.Machine.health_status: models.HealthStatus.HEALTHY})
             continue
         
         existing_issue = db.query(models.Alert).filter(

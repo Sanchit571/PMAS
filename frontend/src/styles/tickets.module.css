@@ -157,6 +157,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: auto;
+  padding-bottom: 10px;
 }
 
 .created {
@@ -297,8 +299,8 @@
 }
 
 .modalHeader h3 {
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: #ffffff;
   margin: 0;
 }
@@ -374,15 +376,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13.5px;
+  font-size: 10px;
   color: #C0C2B8;
   cursor: pointer;
   user-select: none;
 }
 
 .techOption input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   accent-color: #D5FF40;
   cursor: pointer;
   background: transparent;
@@ -477,3 +479,51 @@
 }
 
 .saveAssignBtn:hover { background: #c4ef30; }
+
+.pendingBtn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+/* Specific Style for Pending Approval */
+.pendingBtn {
+  background: #252522; /* Darker matte background to match modal/select */
+  color: #6b6d66;     /* Muted text color */
+  border: 1px solid rgba(192, 194, 184, 0.12);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Hover state for Pending (Muted interaction) */
+.pendingBtn:hover {
+  background: #1e1e1b;
+  color: #C0C2B8;
+  border-color: rgba(213, 255, 64, 0.2);
+}
+
+/* Optional: Add the hourglass icon via CSS to keep JSX clean */
+.pendingBtn::before {
+  /* content: "⏳"; */
+  font-size: 12px;
+  filter: grayscale(100%);
+  opacity: 0.7;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 30px 0 15px 0; /* Adds proper breathing room between sections */
+  letter-spacing: -0.2px;
+}

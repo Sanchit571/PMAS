@@ -72,8 +72,12 @@ def save_inference_report(df_with_preds: pd.DataFrame, output_path: str = OUTPUT
     report_df["RUL_predicted_hours"] = report_df["RUL_predicted_hours"].round(2)
     report_df["RUL_predicted_days"]  = (report_df["RUL_predicted_hours"] / 24).round(2)
     
-    # Next maintenance is physically the same as RUL
-    report_df["next_maintenance_days"] = report_df["RUL_predicted_days"]
+    random_buffers = np.random.uniform(2, 20, size=len(report_df))
+    report_df["next_maintenance_days"] = report_df["RUL_predicted_days"] - random_buffers
+    report_df["next_maintenance_days"] = report_df["next_maintenance_days"].clip(
+        lower=0.5,
+        upper=report_df["RUL_predicted_days"] * 0.9
+    ).round(2)
     
     # Map Health Status
     # Using .apply for smaller fleet or np.select for larger performance
