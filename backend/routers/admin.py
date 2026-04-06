@@ -6,6 +6,7 @@ from sqlalchemy import desc
 from backend import database, schemas, auth, models
 from backend.core.hashing import Hash
 import pandas as pd
+from datetime import date
 from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
 
 router = APIRouter(
@@ -146,6 +147,23 @@ def add_machine(
             machine_id = 'M0' + str(next_id)
         else:
             machine_id = 'M' + str(next_id)
+
+    if not request.machine_type.strip() or not request.location.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Machine type and location cannot be empty"
+        )
+
+    if not request.installation_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Installation date is required"
+        )
+    if request.installation_date > date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="Installation date cannot be in the future"
+        )
     
     machine = models.Machine(
         machine_id=machine_id,

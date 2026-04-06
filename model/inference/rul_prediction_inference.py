@@ -20,14 +20,43 @@ def predict(model_config, data_path: str = DATA_PATH, model_path: str = MODEL_PA
     model = xgb.XGBRegressor()
     model.load_model(model_path)
     
+    # Validation for unstructured data
     df = load_data(data_path, verbose=0)
+    required_columns = [
+        "timestamp", "machine_id", "process_temperature", "air_temperature",
+        "vibration", "torque", "rpm", "current", "operating_hours",
+        "time_since_last_maintenance", "last_maintenance_Type",
+        "machine_failure", "idle_duration", "power_consumption"
+    ]
+
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+
+    if df.empty:
+        raise ValueError("Input data is empty")
+
+    if df[required_columns].isnull().any().any():
+        raise ValueError("Input data contains missing/null values")
+
+    numeric_cols = [
+        "process_temperature", "air_temperature", "vibration",
+        "torque", "rpm", "current", "operating_hours",
+        "idle_duration", "power_consumption"
+    ]
+
+    for col in numeric_cols:
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            raise ValueError(f"Column {col} must be numeric")
+        
+        
     df_engineered = engineer_features(df, config=model_config, verbose=0)
     feature_cols = joblib.load(feature_path)
     
     X = df_engineered[feature_cols].values
     preds_log = model.predict(X)
 
-    preds = np.expm1(preds_log)  # convert back to hours
+    preds = np.expm1(preds_log)  
 
     df_engineered["predicted_RUL"] = np.clip(
         preds, 0, model_config["feature_engineering"]["rul_cap"]
