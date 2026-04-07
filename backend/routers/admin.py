@@ -8,6 +8,7 @@ from backend.core.hashing import Hash
 import pandas as pd
 from datetime import date
 from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
+import re
 
 router = APIRouter(
     prefix='/admin',
@@ -70,6 +71,19 @@ def register_technician(
         )
 
     hashed_password = Hash.bcrypt(request.password)
+    if not request.name.strip() or not request.email.strip() or not request.password.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Name, email, and password are required"
+        )
+
+
+    email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    if not re.match(email_regex, request.email):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid email format"
+        )
     
     new_user = models.User(
         name=request.name,
