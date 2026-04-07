@@ -36,8 +36,6 @@ def predict(model_config, data_path: str = DATA_PATH, model_path: str = MODEL_PA
     if df.empty:
         raise ValueError("Input data is empty")
 
-    if df[required_columns].isnull().any().any():
-        raise ValueError("Input data contains missing/null values")
 
     numeric_cols = [
         "process_temperature", "air_temperature", "vibration",
@@ -49,7 +47,7 @@ def predict(model_config, data_path: str = DATA_PATH, model_path: str = MODEL_PA
         if not pd.api.types.is_numeric_dtype(df[col]):
             raise ValueError(f"Column {col} must be numeric")
         
-        
+
     df_engineered = engineer_features(df, config=model_config, verbose=0)
     feature_cols = joblib.load(feature_path)
     

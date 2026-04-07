@@ -1,16 +1,17 @@
 from datetime import datetime, date, timezone
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel, computed_field, field_validator, EmailStr
 from backend.models import UserRole, HealthStatus, Priority, TicketStatus, Severity
 from typing import List, Optional
 
+
 class UserCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     password: str
     org_name: str
     
 class UserLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class UserUpdate(BaseModel):
@@ -37,7 +38,7 @@ class TechnicianProfile(BaseModel):
     
 class UserResponse(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     org_name: str
     technician: Optional[TechnicianProfile]
 
@@ -74,7 +75,7 @@ class TicketCreate(BaseModel):
 class TechnicianSimple(BaseModel):
     user_id: int
     name: str
-    email: str
+    email: EmailStr
 
     class Config:
         from_attributes = True

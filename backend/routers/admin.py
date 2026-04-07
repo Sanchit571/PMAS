@@ -78,11 +78,10 @@ def register_technician(
         )
 
 
-    email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
-    if not re.match(email_regex, request.email):
+    if request.name.strip().isdigit():
         raise HTTPException(
             status_code=400,
-            detail="Invalid email format"
+            detail="Name Cannot be Numeric Value"
         )
     
     new_user = models.User(
@@ -178,6 +177,17 @@ def add_machine(
             status_code=400,
             detail="Installation date cannot be in the future"
         )
+    if request.machine_type.strip().isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Machine type cannot be numeric"
+        )
+
+    if request.location.strip().isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Location cannot be numeric"
+        )
     
     machine = models.Machine(
         machine_id=machine_id,
@@ -185,7 +195,7 @@ def add_machine(
         health_status=models.HealthStatus.HEALTHY,
         installation_date=request.installation_date,
         last_service_date=request.installation_date,
-        location=request.location,
+        location=request.location.title(),
         org_name=user.org_name
     )
     

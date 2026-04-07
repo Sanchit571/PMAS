@@ -56,7 +56,7 @@ class Technician(Base):
 
     # relationships
     user = relationship("User", back_populates="technician")
-    tickets = relationship("TicketTechnician", back_populates="technician")
+    tickets = relationship("TicketTechnician", back_populates="technician",passive_deletes=True)
     
     @property
     def assigned_tickets(self):
@@ -104,7 +104,7 @@ class Ticket(Base):
 
     # relationships
     alert = relationship("Alert", back_populates="tickets")
-    technicians = relationship("TicketTechnician", back_populates="ticket")
+    technicians = relationship("TicketTechnician", back_populates="ticket", passive_deletes=True)
     
     @property
     def accepted_by(self):

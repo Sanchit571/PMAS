@@ -12,8 +12,8 @@ CSV_PATH = os.path.join(DATA_DIR, "inference_test_data.csv")
 STATE_PATH = os.path.join(DATA_DIR, "machine_state.json")
 
 # Probability Factors (tuned for 5-second intervals)
-P_HEALTHY_TO_DEGRADING = 0.001 
-P_DEGRADING_TO_CRITICAL = 0.004 # 4% chance (~1.5 mins expected time)
+P_HEALTHY_TO_DEGRADING = 0.005 
+P_DEGRADING_TO_CRITICAL = 0.008 # 4% chance (~1.5 mins expected time)
 
 def get_machine_ids():
     db = SessionLocal()
