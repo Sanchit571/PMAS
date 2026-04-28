@@ -47,7 +47,6 @@ class User(Base):
         passive_deletes=True, 
         cascade="all, delete-orphan" 
     )
-    # assigned_tickets = relationship("Ticket", back_populates="assignee")
 
 class Technician(Base):
     __tablename__ = "technicians"
@@ -57,7 +56,7 @@ class Technician(Base):
 
     # relationships
     user = relationship("User", back_populates="technician")
-    tickets = relationship("TicketTechnician", back_populates="technician")
+    tickets = relationship("TicketTechnician", back_populates="technician",passive_deletes=True)
     
     @property
     def assigned_tickets(self):
@@ -85,6 +84,7 @@ class Alert(Base):
     severity = Column(Enum(Severity))
     created_at = Column(DateTime, default=datetime.utcnow)
     acknowledged = Column(Boolean, default=False)
+    closed = Column(Boolean, default=False)
 
     # relationships
     machine = relationship("Machine", back_populates="alerts")
@@ -104,8 +104,7 @@ class Ticket(Base):
 
     # relationships
     alert = relationship("Alert", back_populates="tickets")
-    # assignee = relationship("User", back_populates="assigned_tickets")
-    technicians = relationship("TicketTechnician", back_populates="ticket")
+    technicians = relationship("TicketTechnician", back_populates="ticket", passive_deletes=True)
     
     @property
     def accepted_by(self):

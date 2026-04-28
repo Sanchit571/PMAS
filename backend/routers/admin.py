@@ -1,9 +1,14 @@
 from typing import List
 from fastapi import APIRouter, status, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 from sqlalchemy import desc
 from backend import database, schemas, auth, models
 from backend.core.hashing import Hash
+import pandas as pd
+from datetime import date
+from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
+import re
 
 router = APIRouter(
     prefix='/admin',
@@ -19,7 +24,7 @@ def update_admin_info(
     db: Session = Depends(get_db),
     user: models.User = Depends(role_required(['ADMIN']))
 ):
-    updated_info = request.dict(exclude_unset=True)
+    updated_info = request.model_dump(exclude_unset=True)
     if "old_password" not in updated_info:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Old password is required to update information.")
     
@@ -55,9 +60,29 @@ def get_all_technicians(
 def register_technician(
     request: schemas.UserCreate,
     db: Session = Depends(get_db),
-    user: models.User = Depends(role_required(['ADMIN']))
-):
+    user: models.User = Depends(role_required(['ADMIN']))):
+    
+    existing_user = db.query(models.User).filter(models.User.email == request.email).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists"
+        )
+
     hashed_password = Hash.bcrypt(request.password)
+    if not request.name.strip() or not request.email.strip() or not request.password.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Name, email, and password are required"
+        )
+
+
+    if request.name.strip().isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Name Cannot be Numeric Value"
+        )
     
     new_user = models.User(
         name=request.name,
@@ -135,6 +160,34 @@ def add_machine(
             machine_id = 'M0' + str(next_id)
         else:
             machine_id = 'M' + str(next_id)
+
+    if not request.machine_type.strip() or not request.location.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Machine type and location cannot be empty"
+        )
+
+    if not request.installation_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Installation date is required"
+        )
+    if request.installation_date > date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="Installation date cannot be in the future"
+        )
+    if request.machine_type.strip().isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Machine type cannot be numeric"
+        )
+
+    if request.location.strip().isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail="Location cannot be numeric"
+        )
     
     machine = models.Machine(
         machine_id=machine_id,
@@ -142,7 +195,7 @@ def add_machine(
         health_status=models.HealthStatus.HEALTHY,
         installation_date=request.installation_date,
         last_service_date=request.installation_date,
-        location=request.location,
+        location=request.location.title(),
         org_name=user.org_name
     )
     
@@ -272,7 +325,7 @@ def view_alerts(
     db: Session = Depends(get_db),
     user: models.User = Depends(role_required(['ADMIN']))
 ):
-    alerts = db.query(models.Alert).all()
+    alerts = db.query(models.Alert).options(joinedload(models.Alert.tickets)).all();
     
     return alerts
 
@@ -292,3 +345,38 @@ def acknowlege_alert(
     db.commit()
     
     return {"msg": "Alert acknowledged succesfully"}
+
+@router.get('/monitoring/{machine_id}', response_model=schemas.MonitoringResponse)
+def get_live_monitoring(
+    machine_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(role_required(['ADMIN', 'TECHNICIAN']))
+):
+    data_df = pd.read_csv(DATA_PATH)
+    results_df = pd.read_csv(OUTPUT_PATH)
+
+    data_row = data_df[data_df['machine_id'] == machine_id]
+    results_row = results_df[results_df['machine_id'] == machine_id]
+
+    machine = db.query(models.Machine).filter(
+        models.Machine.machine_id == machine_id
+    ).first()
+
+    if not machine:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Machine {machine_id} not found")
+
+    monitoring_result = schemas.MonitoringResponse(
+        machine_id=machine_id,
+        machine_type=machine.machine_type,
+        machine_location=machine.location,
+        operating_hours=data_row['operating_hours'],
+        temperature=data_row['process_temperature'],
+        vibration=data_row['vibration'],
+        torque=data_row['torque'],
+        rpm=data_row['rpm'],
+        time_since_last_maint=data_row['time_since_last_maintenance'],
+        rul_days=results_row['RUL_predicted_days'],
+        next_maintenance_days=results_row['next_maintenance_days']
+    )
+
+    return monitoring_result

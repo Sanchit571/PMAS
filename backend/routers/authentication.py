@@ -17,10 +17,11 @@ def login(
     user = db.query(models.User).filter(models.User.email == request.email).first()
     
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid Credentials")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Does Not Exist")
+
     if not Hash.verify(request.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials")
-    
+
     access_token = auth_token.create_access_token(
         data={
             "sub":user.email,
@@ -35,6 +36,8 @@ def login(
         "user": {
             "id": user.user_id,
             "email": user.email,
-            "role": user.role.value
+            "name": user.name,
+            "role": user.role.value,
+            "org_name": user.org_name,
         }
     }

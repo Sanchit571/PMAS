@@ -3,6 +3,8 @@ from fastapi import APIRouter, status, Depends, HTTPException, Body
 from backend import database, auth, models, schemas
 from backend.core.hashing import Hash
 from sqlalchemy.orm import Session
+import pandas as pd
+from model.inference.rul_prediction_inference import DATA_PATH, OUTPUT_PATH
 
 router = APIRouter(
     prefix='/technician',
@@ -113,7 +115,7 @@ def accept_ticket(
 @router.patch('/update-status/{ticket_id}', response_model=schemas.TicketResponse)
 def update_ticket_status(
     ticket_id: int,
-    status: models.TicketStatus = Body(...),
+    ticket_status: models.TicketStatus = Body(...),
     db: Session = Depends(get_db),
     user: models.User = Depends(role_required(['TECHNICIAN']))
 ):
@@ -125,7 +127,7 @@ def update_ticket_status(
     
     if not assignment:
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="You are not authorized to update this ticket's status."
         )
         
@@ -136,8 +138,49 @@ def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Ticket {ticket_id} not found")
     
-    ticket.status = status.value
+    ticket.status = ticket_status.value
+    
+    if ticket_status == models.TicketStatus.RESOLVED and ticket.alert_id:
+        db.query(models.Alert).filter(
+            models.Alert.alert_id == ticket.alert_id
+        ).update({"closed":True})
     
     db.commit()
+    db.refresh(ticket)
     
     return ticket
+
+@router.get('/monitoring/{machine_id}', response_model=schemas.MonitoringResponse)
+def get_live_monitoring(
+    machine_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(role_required(['ADMIN', 'TECHNICIAN']))
+):
+    data_df = pd.read_csv(DATA_PATH)
+    results_df = pd.read_csv(OUTPUT_PATH)
+
+    data_row = data_df[data_df['machine_id'] == machine_id]
+    results_row = results_df[results_df['machine_id'] == machine_id]
+
+    machine = db.query(models.Machine).filter(
+        models.Machine.machine_id == machine_id
+    ).first()
+
+    if not machine:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Machine {machine_id} not found")
+
+    monitoring_result = schemas.MonitoringResponse(
+        machine_id=machine_id,
+        machine_type=machine.machine_type,
+        machine_location=machine.location,
+        operating_hours=data_row['operating_hours'],
+        temperature=data_row['process_temperature'],
+        vibration=data_row['vibration'],
+        torque=data_row['torque'],
+        rpm=data_row['rpm'],
+        time_since_last_maint=data_row['time_since_last_maintenance'],
+        rul_days=results_row['RUL_predicted_days'],
+        next_maintenance_days=results_row['next_maintenance_days']
+    )
+
+    return monitoring_result

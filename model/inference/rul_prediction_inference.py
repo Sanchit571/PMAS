@@ -12,7 +12,7 @@ CONFIG_PATH = os.path.join(MODEL_DIR ,"saved_models", "model_config.pkl")
 OUTPUT_PATH = os.path.join(MODEL_DIR, "results", "inference_results.csv")
 FEATURE_PATH = os.path.join(MODEL_DIR, "saved_models", "feature_cols.pkl")
 
-def predict(model_config, data_path, model_path, feature_path):
+def predict(model_config, data_path: str = DATA_PATH, model_path: str = MODEL_PATH, feature_path: str = FEATURE_PATH):
     if not os.path.exists(model_path):
         print(f"Error: Model not found at {model_path}")
         return
@@ -20,14 +20,41 @@ def predict(model_config, data_path, model_path, feature_path):
     model = xgb.XGBRegressor()
     model.load_model(model_path)
     
+    # Validation for unstructured data
     df = load_data(data_path, verbose=0)
+    required_columns = [
+        "timestamp", "machine_id", "process_temperature", "air_temperature",
+        "vibration", "torque", "rpm", "current", "operating_hours",
+        "time_since_last_maintenance", "last_maintenance_Type",
+        "machine_failure", "idle_duration", "power_consumption"
+    ]
+
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+
+    if df.empty:
+        raise ValueError("Input data is empty")
+
+
+    numeric_cols = [
+        "process_temperature", "air_temperature", "vibration",
+        "torque", "rpm", "current", "operating_hours",
+        "idle_duration", "power_consumption"
+    ]
+
+    for col in numeric_cols:
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            raise ValueError(f"Column {col} must be numeric")
+        
+
     df_engineered = engineer_features(df, config=model_config, verbose=0)
     feature_cols = joblib.load(feature_path)
     
     X = df_engineered[feature_cols].values
     preds_log = model.predict(X)
 
-    preds = np.expm1(preds_log)  # convert back to hours
+    preds = np.expm1(preds_log)  
 
     df_engineered["predicted_RUL"] = np.clip(
         preds, 0, model_config["feature_engineering"]["rul_cap"]
@@ -47,16 +74,14 @@ def predict(model_config, data_path, model_path, feature_path):
     return latest_status
 
 def map_health_status(rul_hours):
-    if rul_hours <= 48:
+    if rul_hours <= 100:
         return "CRITICAL"
-    elif rul_hours <= 150:
-        return "WARNING"
-    elif rul_hours <= 400:
-        return "CAUTION"
+    elif rul_hours <= 350:
+        return "DEGRADING"
     else:
         return "HEALTHY"
 
-def save_inference_report(df_with_preds: pd.DataFrame, output_path: str):
+def save_inference_report(df_with_preds: pd.DataFrame, output_path: str = OUTPUT_PATH, verbose: int = 0):
     """
     Takes the model output (DataFrame with 'predicted_RUL') 
     and saves the final maintenance report.
@@ -67,15 +92,19 @@ def save_inference_report(df_with_preds: pd.DataFrame, output_path: str):
         "vibration_zscore", "predicted_RUL"
     ]].copy()
 
-    # ename for Clarity
+    # rename for Clarity
     report_df = report_df.rename(columns={"predicted_RUL": "RUL_predicted_hours"})
 
     # Apply Transformations
     report_df["RUL_predicted_hours"] = report_df["RUL_predicted_hours"].round(2)
     report_df["RUL_predicted_days"]  = (report_df["RUL_predicted_hours"] / 24).round(2)
     
-    # Next maintenance is physically the same as RUL
-    report_df["next_maintenance_days"] = report_df["RUL_predicted_days"]
+    random_buffers = np.random.uniform(2, 20, size=len(report_df))
+    report_df["next_maintenance_days"] = report_df["RUL_predicted_days"] - random_buffers
+    report_df["next_maintenance_days"] = report_df["next_maintenance_days"].clip(
+        lower=0.5,
+        upper=report_df["RUL_predicted_days"] * 0.9
+    ).round(2)
     
     # Map Health Status
     # Using .apply for smaller fleet or np.select for larger performance
@@ -90,7 +119,8 @@ def save_inference_report(df_with_preds: pd.DataFrame, output_path: str):
 
     # Save and Return
     report_df.to_csv(output_path, index=False)
-    print(f"\n[SUCCESS] Inference report saved to: {output_path}")
+    if verbose == 1:
+        print(f"\n[SUCCESS] Inference report saved to: {output_path}")
     
     return report_df
     
@@ -102,5 +132,5 @@ if __name__ == '__main__':
     
     model_config = joblib.load(CONFIG_PATH)
     summary_df = predict(model_config=model_config, data_path=DATA_PATH, model_path=MODEL_PATH, feature_path=FEATURE_PATH)
-    save_inference_report(summary_df, output_path=OUTPUT_PATH)
+    save_inference_report(summary_df, output_path=OUTPUT_PATH, verbose=1)
     

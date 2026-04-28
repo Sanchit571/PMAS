@@ -1,16 +1,17 @@
 from datetime import datetime, date, timezone
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel, computed_field, field_validator, EmailStr
 from backend.models import UserRole, HealthStatus, Priority, TicketStatus, Severity
 from typing import List, Optional
 
+
 class UserCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     password: str
     org_name: str
     
 class UserLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class UserUpdate(BaseModel):
@@ -37,7 +38,7 @@ class TechnicianProfile(BaseModel):
     
 class UserResponse(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     org_name: str
     technician: Optional[TechnicianProfile]
 
@@ -48,33 +49,11 @@ class MachineCreate(BaseModel):
     machine_type: str
     installation_date: date
     location: str
-    
-    @field_validator("installation_date", mode="before")
-    @classmethod
-    def parse_dd_mm_yyyy(cls, value):
-        clean_value = value.strip()
-        if isinstance(value, str):
-            try:
-                return datetime.strptime(clean_value, "%d-%m-%Y").date()
-            except:
-                raise ValueError(f"Invalid format {value}. Format must be DD-MM-YYYY (e.g., 21-03-2026)")
-        return value
 
 class MachineUpdate(BaseModel):
     health_status: Optional[HealthStatus] = None
     location: Optional[str] = None
     last_service_date: Optional[date] = None
-    
-    @field_validator("last_service_date", mode="before")
-    @classmethod
-    def parse_dd_mm_yyyy(cls, value):
-        clean_value = value.strip()
-        if isinstance(value, str):
-            try:
-                return datetime.strptime(clean_value, "%d-%m-%Y").date()
-            except:
-                raise ValueError(f"Invalid format {value}. Expected DD-MM-YYYY (e.g., 21-03-2026)")
-        return value
 
 class MachineResponse(BaseModel):
     machine_id: str
@@ -96,7 +75,7 @@ class TicketCreate(BaseModel):
 class TechnicianSimple(BaseModel):
     user_id: int
     name: str
-    email: str
+    email: EmailStr
 
     class Config:
         from_attributes = True
@@ -137,6 +116,8 @@ class AlertResponse(BaseModel):
     severity: Severity
     created_at: datetime
     acknowledged: bool
+    closed: bool
+    tickets: List[TicketResponse] = []
     
     @computed_field
     @property
@@ -156,3 +137,18 @@ class AlertResponse(BaseModel):
 
     class Config:
         from_attributes=True
+
+class MonitoringResponse(BaseModel):
+    machine_id: str
+    machine_type: str
+    machine_location: str
+    operating_hours: float
+
+    temperature: float
+    vibration: float
+    torque: float
+    rpm: float
+
+    time_since_last_maint: float
+    rul_days: float
+    next_maintenance_days: float
